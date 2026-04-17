@@ -72,6 +72,29 @@ model, scaler, model_info = load_models()
 if 'prediction_log' not in st.session_state:
     st.session_state.prediction_log = []
 
+# Función para convertir el log a DataFrame
+def get_prediction_log_df():
+    if not st.session_state.prediction_log:
+        return pd.DataFrame()
+    df = pd.json_normalize(st.session_state.prediction_log)
+    df = df.rename(columns={
+        'Probabilidades.setosa': 'Probabilidad setosa',
+        'Probabilidades.versicolor': 'Probabilidad versicolor',
+        'Probabilidades.virginica': 'Probabilidad virginica'
+    })
+    base_columns = [
+        'Fecha y Hora',
+        'Zona Horaria',
+        'Longitud del Sépalo',
+        'Ancho del Sépalo',
+        'Longitud del Pétalo',
+        'Ancho del Pétalo',
+        'Especie Predicha',
+        'Confianza'
+    ]
+    probability_columns = [c for c in df.columns if c.startswith('Probabilidad')]
+    return df[base_columns + probability_columns]
+
 if model is not None:
     # Inputs
     st.header("Ingresa las características de la flor:")
@@ -110,6 +133,7 @@ if model is not None:
         timestamp = datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S %Z')
         log_entry = {
             'Fecha y Hora': timestamp,
+            'Zona Horaria': selected_timezone,
             'Longitud del Sépalo': sepal_length,
             'Ancho del Sépalo': sepal_width,
             'Longitud del Pétalo': petal_length,
@@ -119,3 +143,11 @@ if model is not None:
             'Probabilidades': {species: f"{prob:.1%}" for species, prob in zip(target_names, probabilities)}
         }
         st.session_state.prediction_log.append(log_entry)
+
+    # Mostrar log de predicciones
+    st.header("Historial de predicciones")
+    log_df = get_prediction_log_df()
+    if log_df.empty:
+        st.info("Aún no se ha registrado ninguna predicción.")
+    else:
+        st.dataframe(log_df, use_container_width=True)
